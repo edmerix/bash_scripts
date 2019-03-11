@@ -8,13 +8,19 @@ Quick 'n' easy reading of the header of .NSx files of neural data from Blackrock
 
 Especially useful for finding data when sync'd NSPs were used - the output includes:
   
-- True recording start (in local time, not UTC)
-    
+- True recording start and finish times (in local time, not UTC)
+
 - Number of data segments (syncing NSPs causes "paused" files, file-turnover errors cause many segments)
-    
+
 - Duration of each segment
-    
+
 - Total duration of data in the file
+
+- Sampling frequency and number of data samples
+
+- Number of channels
+
+
 
 ### nsxtimes
 
