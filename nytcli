@@ -1,0 +1,117 @@
+#!/bin/bash
+
+read_dom () {
+    local IFS=\>
+    read -d \< ENTITY CONTENT
+}
+HELP=0
+while getopts s:l:h opts; do
+    case ${opts} in
+        s) SECTION=${OPTARG} ;;
+        l) LIMIT=${OPTARG} ;;
+        h) HELP=1 ;;
+    esac
+done
+
+# Place your NY times API key here:
+API=your_API_key_here
+
+if [[ $HELP -eq 1 ]]; then
+    URL="http://api.nytimes.com/svc/news/v3/content/section-list.xml?api-key=${API}"
+    echo "$(tput smul)$(tput setaf 6)nytcli$(tput rmul) reads in 15 most recently published articles by The New York Times"
+    echo -e "$(tput setaf 7)---Number of articles read can be set using the -l option"
+    echo -e "---Results can be limited to a certain section of the NYT using the -s option"
+    echo -e "Retrieving possible section names now (vaguely correcting formatting for use):$(tput setaf 1)"
+    wget -qO .nythelp ${URL}
+    SECTIONLIST=""
+    while read_dom; do
+        if [[ $ENTITY = "section" ]]; then
+            if [[ $CONTENT != "<*" ]]; then
+                if [[ ! -z "${CONTENT// }" ]]; then
+                    SECTIONLIST="${SECTIONLIST}${CONTENT// /%20} "
+                fi
+            fi
+        fi
+    done < .nythelp
+    rm .nythelp
+    echo -e "$SECTIONLIST$(tput sgr0)"
+    exit
+fi
+
+if [ -z "$SECTION" ]; then
+    SECTION='all'
+fi
+if [ -z "$LIMIT" ]; then
+    LIMIT=15
+fi
+
+URL="http://api.nytimes.com/svc/news/v3/content/all/${SECTION}/all.xml?limit=${LIMIT}&api-key=${API}"
+
+echo "Retrieving New York Times articles..."
+wget -qO .nyt ${URL}
+
+echo "First ${LIMIT} headlines:"
+ARTCOUNT=-1
+# I appreciate that the separate arrays is a little OTT, but we could get a situation where there's a title and no abstract, or vice versa, in which case we'd get our table out of whack. So here we go with the arrays to maintin identities...
+while read_dom; do
+    if [[ $ENTITY = "news_item" ]]; then
+        ARTCOUNT=$(($ARTCOUNT + 1))
+    elif [[ $ENTITY = "title" ]]; then
+        TITLES[$ARTCOUNT]="${CONTENT}"
+    elif [[ $ENTITY = "abstract" ]]; then
+        ABSTRACTS[$ARTCOUNT]="${CONTENT}"
+    elif [[ $ENTITY = "byline" ]]; then
+        BY[$ARTCOUNT]="${CONTENT}"
+    elif [[ $ENTITY = "url" ]] && [[ ${URLDONE[$ARTCOUNT]} -eq 0 ]]; then
+        URL[$ARTCOUNT]="${CONTENT}"
+        URLDONE[$ARTCOUNT]=1
+    elif [[ $ENTITY = "updated_date" ]]; then
+        DATE[$ARTCOUNT]="${CONTENT}"
+    fi
+done < .nyt
+
+rm .nyt
+
+for i in $(seq 0 $ARTCOUNT); do
+    echo -e "$(tput bold)$(tput setaf 6)$i:$(tput sgr0) $(tput setaf 7)\"${TITLES[$i]}\"$(tput sgr0)"
+done
+ARTNUM=0
+CURART=-1
+while [[ $ARTNUM -gt -1 ]]; do
+    echo -e -n "Enter article number or command ('h' for commands, or 'q' to quit): "
+    #printf "${TABLE}" | column -t -x -s $'\t'
+    read ARTNUM
+    if [[ $ARTNUM == 'q' ]]; then
+        exit
+    elif [[ $ARTNUM == 'h' ]]; then
+        echo -e "Commands:"
+        echo -e "\t$(tput bold)$(tput setaf 6)h:$(tput sgr0)\t$(tput setaf 7)Display this list$(tput sgr0)"
+        echo -e "\t$(tput bold)$(tput setaf 6){n}:$(tput sgr0)\t$(tput setaf 7)Show abstract for {n}th article$(tput sgr0)"
+        echo -e "\t$(tput bold)$(tput setaf 6)l:$(tput sgr0)\t$(tput setaf 7)Show loaded headlines$(tput sgr0)"
+        echo -e "\t$(tput bold)$(tput setaf 6)r:$(tput sgr0)\t$(tput setaf 7)Open last article displayed in default browser$(tput sgr0)"
+        echo -e "\t$(tput bold)$(tput setaf 6)q:$(tput sgr0)\t$(tput setaf 7)Quit$(tput sgr0)"
+    elif [[ $ARTNUM == 'l' ]]; then
+        for i in $(seq 0 $ARTCOUNT);
+        do
+            echo "$(tput bold)$(tput setaf 6)$i:$(tput sgr0) $(tput setaf 7)\"${TITLES[$i]}\"$(tput sgr0)"
+        done
+    elif [[ $ARTNUM == 'r' ]]; then
+        if [[ $CURART -gt $ARTCOUNT ]] || [[ $CURART -lt 0 ]]; then
+            echo "$(tput setaf 1)$CURART is not an ID of any articles loaded$(tput sgr0)"
+        else
+            echo "Opening article ${CURART} in default browser..."
+            python -m webbrowser "${URL[$CURART]}"
+        fi
+    else
+        if [[ $((ARTNUM)) != $ARTNUM ]]; then
+            echo "$(tput setaf 1)$ARTNUM is not a command letter or an article number$(tput sgr0)"
+        elif [[ $ARTNUM -gt $ARTCOUNT ]]; then
+            echo "$(tput setaf 1)$ARTNUM is larger than the number of articles loaded$(tput sgr0)"
+        else
+            CURART=$ARTNUM
+            echo "$(tput smul)$(tput setaf 6)${TITLES[$ARTNUM]}$(tput rmul):"
+            echo "$(tput setaf 1)${BY[$ARTNUM]}, updated: ${DATE[$ARTNUM]}"
+            echo "$(tput setaf 7)${ABSTRACTS[$ARTNUM]}$(tput sgr0)"
+        fi
+    fi
+done
