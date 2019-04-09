@@ -10,69 +10,51 @@ if [[ -e $1 ]] ; then
 		echo -e "\tFile is $(($filesize/1024/1024)) MB"
 	fi
 	echo -e "\tFile type is $filetype"
+    
 	if [[ $filetype == "NEURALCD" ]] ; then
 		filespec="$((16#$(xxd -p -l 1 -s 8 $1))).$((16#$(xxd -p -l 1 -s 9 $1)))"
 		echo -e "\tFile spec is $filespec"
-		#little-endian mixed with wanting plaintext output is a pain with xxd: (use something else then?!)
-		year="$(xxd -p -l 1 -s 295 -g 2 $1)$(xxd -p -l 1 -s 294 -g 2 $1)" 
-		month="$(xxd -p -l 1 -s 297 -g 2 $1)$(xxd -p -l 1 -s 296 -g 2 $1)"
-		day="$(xxd -p -l 1 -s 301 -g 2 $1)$(xxd -p -l 1 -s 300 -g 2 $1)"
-		hour="$(xxd -p -l 1 -s 303 -g 2 $1)$(xxd -p -l 1 -s 302 -g 2 $1)"
-		minute="$(xxd -p -l 1 -s 305 -g 2 $1)$(xxd -p -l 1 -s 304 -g 2 $1)"
-		second="$(xxd -p -l 1 -s 307 -g 2 $1)$(xxd -p -l 1 -s 306 -g 2 $1)"
-		printf -v year "%04d" $((16#$year))
-		printf -v month "%02d" $((16#$month))
-		printf -v day "%02d" $((16#$day))
-		printf -v hour "%02d" $((16#$hour))
-		printf -v minute "%02d" $((16#$minute))
-		printf -v second "%02d" $((16#$second))
+        # all of these are little-endian, so having to spin it around using the endian function below:
+        year=$(endian $(xxd -p -l 2 -s 294 $1))
+        month=$(endian $(xxd -p -l 2 -s 296 $1))
+        day=$(endian $(xxd -p -l 2 -s 300 $1))
+        hour=$(endian $(xxd -p -l 2 -s 302 $1))
+        minute=$(endian $(xxd -p -l 2 -s 304 $1))
+        second=$(endian $(xxd -p -l 2 -s 306 $1))
+        printf -v year "%04d" $((16#$year))
+        printf -v month "%02d" $((16#$month))
+        printf -v day "%02d" $((16#$day))
+        printf -v hour "%02d" $((16#$hour))
+        printf -v minute "%02d" $((16#$minute))
+        printf -v second "%02d" $((16#$second))
+        
 		dateformat=$(date -d "$year-$month-$day $hour:$minute:$second UTC")
 		echo -e "\n\tFile start time (local time):\n\t\t$dateformat\n\t\t(stored as: $year-$month-$day $hour:$minute:$second UTC)"
 		
+		# not the clearest commands: (maybe split them into multi-liners for clarity?)
+        # effectively, we xxd the requested number of bytes (-l) starting from -s,
+        # then use endian to spin them around to little-endian, then convert from base 16 to decimal
+		timeres=$((16#$(endian $(xxd -p -l 4 -s 290 $1))))
+		period=$((16#$(endian $(xxd -p -l 4 -s 286 $1))))
+		fs=$(($timeres/$period))
+        chancount=$((16#$(endian $(xxd -p -l 4 -s 310 $1))))
+        
+		#could read chanlabels here
 		
-		# yuck to all of these:
-		timeres=""
-		for s in {293..290..-1}; do
-			timeres="$timeres$(xxd -p -l 1 -s $s $1)"
-		done
-		timeres=$((16#$timeres))
+		extendedread=$((66*$chancount))     # the number of bytes in the extended header, which offsets data start
+		datastart=$((8+306+$extendedread))  # where the actual data start in the file
 		
-		fs=""
-		for s in {289..286..-1}; do
-			fs="$fs$(xxd -p -l 1 -s $s $1)"
-		done
-		fs=$((16#$fs))
-		fs=$(($timeres/$fs))
-		
-		#echo "TimeRes was $timeres, Fs is $fs"
-		
-		chancount=""
-		for s in {313..310..-1} ; do
-			chancount="$chancount$(xxd -p -l 1 -s $s $1)"
-		done
-		chancount=$((16#$chancount))
-		
-		#chanlabels?
-		
-		extendedread=$((66*$chancount))
-		#echo -e "\tread size: $extendedread"
-		datastart=$((8+306+$extendedread))
-		#echo -e "\tdata start: $datastart"
-		
+        # in a paused file we end up with multiple segments, so must loop through:
 		curpos=$datastart
 		segment=0
-		while [ $curpos -lt $filesize ]; do
+		while [ $curpos -lt $filesize ]; do 
 			test=$((16#$(xxd -p -l 1 -s $curpos $1)))
 			if [[ $test != 1 ]]; then
 				datapoints[segment]=$((($filesize-$datastart)/$chancount*2))
 				echo -e "\t\t---dodgy data segment, estimating data length---"
 				curpos=$filesize
 			else
-				dps=""
-				for ((s=$(($curpos+8));s>$(($curpos+4));s--)); do
-					dps="$dps$(xxd -p -l 1 -s $s $1)"
-				done
-				dps=$((16#$dps))
+                dps=$((16#$(endian $(xxd -p -l 4 -s $(($curpos+5)) $1))))
 				#echo -e "\t\tData segment $segment is $dps length and starts at $(($curpos+8))"
 				datapoints[segment]=$dps
 				skip=$(($dps*$chancount*2))
@@ -95,11 +77,46 @@ if [[ -e $1 ]] ; then
 			echo -e "\t\tSegment $s: $((${datapoints[$s]}/$fs)) seconds"
 		done
 		echo -e "\n--- End $1 details ---"
-	else
-		echo "Only NEURALCD files have been coded"
-		exit 1
+    elif [[ $filetype == "NEURALSG" ]] ; then
+        filespec=2.1
+        timeres=30000
+		period=$(xxd -p -l 4 -s 24 $1)
+        period=$(endian $period)
+		fs=$(($timeres/$period))
+        
+        chancount=$(xxd -p -l 4 -s 28 $1)
+        chancount=$(endian $chancount)
+        chancount=$((16#$chancount))
+        
+        datastart=$((8+16+4+4+4*$chancount))
+        totdatapoints=$(($filesize-$datastart))
+        totdatapoints=$(($totdatapoints/($chancount*2)))
+        
+        totseconds=$(($totdatapoints/$fs))
+        
+        echo -e "\tFile spec is $filespec"
+		echo -e "\tTotal file duration: $totseconds seconds"
+		
+		echo -e "\n\t$chancount channels"
+		echo -e "\t$fs Hz sampling frequency"
+
+		echo -e "\n--- End $1 details ---"
+    else
+        echo "Unknown file type"
+        exit 1
 	fi
 else
 	echo "File does not exist"
 	exit 1
 fi
+
+
+function endian(){
+    v=$1
+    i=${#v}
+    while [ $i -gt 0 ]; do
+        i=$[$i-2]
+        echo -n ${v:$i:2}
+    done
+    echo
+}

@@ -13,7 +13,7 @@ while getopts s:l:h opts; do
     esac
 done
 
-# Place your NY times API key here:
+# Place your NYTimes API key here:
 API=your_API_key_here
 
 if [[ $HELP -eq 1 ]]; then
