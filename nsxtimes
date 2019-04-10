@@ -1,4 +1,14 @@
 #!/bin/bash
+function endian(){
+    v=$1
+    i=${#v}
+    while [ $i -gt 0 ]; do
+        i=$[$i-2]
+        echo -n ${v:$i:2}
+    done
+    echo
+}
+
 if [ $# -eq 0 ]; then
     ext='ns3'
 else
@@ -11,12 +21,12 @@ for file in ./*.$ext; do
     # but basically, we're reading in specific bits from the NSx file header and reversing to little-endian bytes
     filetype=$(xxd -p -l 8 $file | xxd -r -p)
     if [[ $filetype == "NEURALCD" ]] ; then
-        year="$(xxd -p -l 1 -s 295 -g 2 $file)$(xxd -p -l 1 -s 294 -g 2 $file)" 
-        month="$(xxd -p -l 1 -s 297 -g 2 $file)$(xxd -p -l 1 -s 296 -g 2 $file)"
-        day="$(xxd -p -l 1 -s 301 -g 2 $file)$(xxd -p -l 1 -s 300 -g 2 $file)"
-        hour="$(xxd -p -l 1 -s 303 -g 2 $file)$(xxd -p -l 1 -s 302 -g 2 $file)"
-        minute="$(xxd -p -l 1 -s 305 -g 2 $file)$(xxd -p -l 1 -s 304 -g 2 $file)"
-        second="$(xxd -p -l 1 -s 307 -g 2 $file)$(xxd -p -l 1 -s 306 -g 2 $file)"
+        year=$(endian $(xxd -p -l 2 -s 294 $file))
+        month=$(endian $(xxd -p -l 2 -s 296 $file))
+        day=$(endian $(xxd -p -l 2 -s 300 $file))
+        hour=$(endian $(xxd -p -l 2 -s 302 $file))
+        minute=$(endian $(xxd -p -l 2 -s 304 $file))
+        second=$(endian $(xxd -p -l 2 -s 306 $file))
         printf -v year "%04d" $((16#$year))
         printf -v month "%02d" $((16#$month))
         printf -v day "%02d" $((16#$day))
@@ -44,13 +54,3 @@ for file in ./*.$ext; do
         echo -e "\t$file:\t$totseconds seconds (NEURALSG)"
     fi
 done
-
-function endian(){
-v=$1
-i=${#v}
-while [ $i -gt 0 ]; do
-    i=$[$i-2]
-    echo -n ${v:$i:2}
-done
-echo
-}

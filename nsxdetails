@@ -1,4 +1,14 @@
 #!/bin/bash
+function endian(){
+    v=$1
+    i=${#v}
+    while [ $i -gt 0 ]; do
+        i=$[$i-2]
+        echo -n ${v:$i:2}
+    done
+    echo
+}
+
 if [[ -e $1 ]] ; then
 	# file exists, proceed
 	echo "--- File $1 details: ---"
@@ -109,14 +119,3 @@ else
 	echo "File does not exist"
 	exit 1
 fi
-
-
-function endian(){
-    v=$1
-    i=${#v}
-    while [ $i -gt 0 ]; do
-        i=$[$i-2]
-        echo -n ${v:$i:2}
-    done
-    echo
-}
