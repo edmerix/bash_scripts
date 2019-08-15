@@ -17,7 +17,9 @@ fi
 echo "Listing all $ext file start times in current directory:"
 for file in ./*.$ext; do
     [[ -e "$file" ]] || continue
-    filesize=$(wc -c < $file)
+    #filesize=$(wc -c < $file)
+    filesize=$(stat --printf="%s" $file)
+    #either of the above should work (though stat is linux-specific)
     # as per nsxdetails, this is probably not the smartest way of doing this...
     # but basically, we're reading in specific bits from the NSx file header and reversing to little-endian bytes
     filetype=$(xxd -p -l 8 $file | xxd -r -p)
@@ -40,6 +42,10 @@ for file in ./*.$ext; do
         timeres=30000
         period=$(xxd -p -l 4 -s 24 $file)
         period=$(endian $period)
+        if [ $period -eq 0 ] ; then
+            echo -e "\t$file:\tperiod was zero"
+            continue
+        fi
         fs=$(($timeres/$period))
 
         chancount=$(xxd -p -l 4 -s 28 $file)
@@ -48,10 +54,20 @@ for file in ./*.$ext; do
 
         datastart=$((8+16+4+4+4*$chancount))
         totdatapoints=$(($filesize-$datastart))
+
+        if [ $chancount -eq 0 ] ; then
+            echo -e "\t$file:\tNo channels"
+            continue
+        fi
         totdatapoints=$(($totdatapoints/($chancount*2)))
+
+        if [ $fs -eq 0 ] ; then
+            echo -e "\t$file:\tFs was zero"
+            continue
+        fi
 
         totseconds=$(($totdatapoints/$fs))
 
-        echo -e "\t$file:\t$totseconds seconds (NEURALSG)"
+        echo -e "\t$file:\t(NEURALSG)\t$totseconds seconds"
     fi
 done
