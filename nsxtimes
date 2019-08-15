@@ -10,12 +10,12 @@ function endian(){
 }
 
 if [ $# -eq 0 ]; then
-    ext='ns3'
+    srch='./*.ns3'
 else
-    ext=$1
+    srch=$1
 fi
-echo "Listing all $ext file start times in current directory:"
-for file in ./*.$ext; do
+echo "Listing start times for all files that match $srch path:"
+for file in $srch; do
     [[ -e "$file" ]] || continue
     #filesize=$(wc -c < $file)
     filesize=$(stat --printf="%s" $file)
