@@ -20,7 +20,7 @@ if [[ -e $1 ]] ; then
 		echo -e "\tFile is $(($filesize/1024/1024)) MB"
 	fi
 	echo -e "\tFile type is $filetype"
-    
+
 	if [[ $filetype == "NEURALCD" ]] ; then
 		filespec="$((16#$(xxd -p -l 1 -s 8 $1))).$((16#$(xxd -p -l 1 -s 9 $1)))"
 		echo -e "\tFile spec is $filespec"
@@ -37,10 +37,10 @@ if [[ -e $1 ]] ; then
         printf -v hour "%02d" $((16#$hour))
         printf -v minute "%02d" $((16#$minute))
         printf -v second "%02d" $((16#$second))
-        
+
 		dateformat=$(date -d "$year-$month-$day $hour:$minute:$second UTC")
 		echo -e "\n\tFile start time (local time):\n\t\t$dateformat\n\t\t(stored as: $year-$month-$day $hour:$minute:$second UTC)"
-		
+
 		# not the clearest commands: (maybe split them into multi-liners for clarity?)
         # effectively, we xxd the requested number of bytes (-l) starting from -s,
         # then use endian to spin them around to little-endian, then convert from base 16 to decimal
@@ -48,16 +48,23 @@ if [[ -e $1 ]] ; then
 		period=$((16#$(endian $(xxd -p -l 4 -s 286 $1))))
 		fs=$(($timeres/$period))
         chancount=$((16#$(endian $(xxd -p -l 4 -s 310 $1))))
-        
-		#could read chanlabels here
-		
+
 		extendedread=$((66*$chancount))     # the number of bytes in the extended header, which offsets data start
+        #read chanlabels here
+        # labels="Channels:\n"
+        # for ((i=0;i<=$(($chancount-1));i++)); do
+        #     offset=$(($i * 66))
+        #     pos=$((8+306+4+$offset))
+        #     labels="${labels}$({(xxd -p -l 16 -s $pos $1 | xxd -r -p)})\t"
+        # done
+        # echo -e $labels
+
 		datastart=$((8+306+$extendedread))  # where the actual data start in the file
-		
+
         # in a paused file we end up with multiple segments, so must loop through:
 		curpos=$datastart
 		segment=0
-		while [ $curpos -lt $filesize ]; do 
+		while [ $curpos -lt $filesize ]; do
 			test=$((16#$(xxd -p -l 1 -s $curpos $1)))
 			if [[ $test != 1 ]]; then
 				datapoints[segment]=$((($filesize-$datastart)/$chancount*2))
@@ -72,16 +79,16 @@ if [[ -e $1 ]] ; then
 			fi
 			((segment++))
 		done
-		
+
 		totdatapoints=$(("${datapoints[@]/%/+}0" | bc)) # clutzy.
 		totseconds=$(($totdatapoints/$fs))
 		dateendformat=$(date -d "$year-$month-$day $hour:$minute:$second UTC + $totseconds seconds")
 		echo -e "\tFile end time (local time):\n\t\t$dateendformat"
 		echo -e "\t\t(total file duration: $totseconds seconds)"
-		
+
 		echo -e "\n\t$chancount channels"
 		echo -e "\t$fs Hz sampling frequency"
-		
+
 		echo -e "\n\t${#datapoints[@]} data segments:"
 		for ((s=0;s<${#datapoints[@]};s++)); do
 			echo -e "\t\tSegment $s: $((${datapoints[$s]}/$fs)) seconds"
@@ -93,20 +100,20 @@ if [[ -e $1 ]] ; then
 		period=$(xxd -p -l 4 -s 24 $1)
         period=$(endian $period)
 		fs=$(($timeres/$period))
-        
+
         chancount=$(xxd -p -l 4 -s 28 $1)
         chancount=$(endian $chancount)
         chancount=$((16#$chancount))
-        
+
         datastart=$((8+16+4+4+4*$chancount))
         totdatapoints=$(($filesize-$datastart))
         totdatapoints=$(($totdatapoints/($chancount*2)))
-        
+
         totseconds=$(($totdatapoints/$fs))
-        
+
         echo -e "\tFile spec is $filespec"
 		echo -e "\tTotal file duration: $totseconds seconds"
-		
+
 		echo -e "\n\t$chancount channels"
 		echo -e "\t$fs Hz sampling frequency"
 
