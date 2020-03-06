@@ -81,7 +81,7 @@ if [[ -e $1 ]] ; then
 		done
 
 		totdatapoints=$(("${datapoints[@]/%/+}0" | bc)) # clutzy.
-		totseconds=$(($totdatapoints/$fs))
+		totseconds=$(bc -l <<<"scale=5; $totdatapoints/$fs")
 		dateendformat=$(date -d "$year-$month-$day $hour:$minute:$second UTC + $totseconds seconds")
 		echo -e "\tFile end time (local time):\n\t\t$dateendformat"
 		echo -e "\t\t(total file duration: $totseconds seconds)"
@@ -91,7 +91,8 @@ if [[ -e $1 ]] ; then
 
 		echo -e "\n\t${#datapoints[@]} data segments:"
 		for ((s=0;s<${#datapoints[@]};s++)); do
-			echo -e "\t\tSegment $s: $((${datapoints[$s]}/$fs)) seconds"
+			dur=$(bc -l <<<"scale=5; ${datapoints[$s]}/$fs")
+			echo -e "\t\tSegment $s: $dur seconds"
 		done
 		echo -e "\n--- End $1 details ---"
     elif [[ $filetype == "NEURALSG" ]] ; then
