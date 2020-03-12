@@ -33,7 +33,7 @@ Pass in an optional parameter to set which type of NSx file (defaults to NS3)
 
 A (colorful) CLI for browsing the most recent headlines from the New York Times.
 
-Need to get/set your own [API key](https://developer.nytimes.com) on line 17 for this to function.
+Requires [jq](https://stedolan.github.io/jq/download/) to be installed, and you need to get/set your own [API key](https://developer.nytimes.com) on line 14 for this to function.
 
 Flags:
 
