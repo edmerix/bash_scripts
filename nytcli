@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 HELP=0
 while getopts s:l:h opts; do
     case ${opts} in
@@ -53,7 +52,7 @@ IFS=$'\n' DATE=($DATE)
 IFS=$'\n' ABSTRACTS=($ABSTRACTS)
 IFS=$'\n' URL=($URL)
 
-#rm .nyt
+rm .nyt
 
 for i in ${!TITLES[@]}; do
     echo -e "$(tput bold)$(tput setaf 6)$i:$(tput sgr0) $(tput setaf 7)${TITLES[$i]}$(tput sgr0)"
