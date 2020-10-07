@@ -9,8 +9,8 @@ while getopts s:l:h opts; do
     esac
 done
 
-# Place your NYTimes API key here:
-API=your_API_key_here
+# Place your NYTimes API key in an environment variable called NYT_API_KEY or update the line below:
+API=$(printenv NYT_API_KEY)
 
 if [[ $HELP -eq 1 ]]; then
     URL="http://api.nytimes.com/svc/news/v3/content/section-list.json?api-key=${API}"
