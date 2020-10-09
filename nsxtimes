@@ -1,4 +1,15 @@
 #!/bin/bash
+# nsxtimes - a shell script to quickly read the header of Blackrock Microsystems .NS{1-5} files in the terminal
+# Similar to sister-function "nsxdetails", but instead takes the path to a list of NSx files and returns basic
+# details for each in turn. With no input, it will search for all .ns3 files in the current directory.
+#
+# Example to read all .ns5 files at /example/directory/path:
+# nsxtimes /example/directory/path/*.ns5
+#
+# E. M. Merricks, Ph.D.
+#       (Note, I'm not a shell script aficionado, I'm certain there's a better way to do a lot of this.
+#        Feel free to open a pull request or let me know of smarter ways to do things in this script!)
+
 function endian(){
     v=$1
     i=${#v}

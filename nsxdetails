@@ -1,4 +1,11 @@
 #!/bin/bash
+# nsxdetails - a shell script to quickly read the header of Blackrock Microsystems .NS{1-5} files in the terminal
+# Takes the path to an NSx file as the only input argument, either absolute or relative.
+# 
+# E. M. Merricks, Ph.D. 
+#     	(Note, I'm not a shell script aficionado, I'm certain there's a better way to do a lot of this.
+# 	 Feel free to open a pull request or let me know of smarter ways to do things in this script!)
+
 function endian(){
     v=$1
     i=${#v}
@@ -14,7 +21,7 @@ if [[ -e $1 ]] ; then
 	echo "--- File $1 details: ---"
 	filesize=$(wc -c < $1)
 	filetype=$(xxd -p -l 8 $1 | xxd -r -p)
-	if [[ $filesize -gt 1024*1024*1024 ]] ; then
+	if [[ $filesize -gt 1024**3 ]] ; then
 		echo -e "\tFile is $(($filesize/1024/1024/1024)) GB"
 	else
 		echo -e "\tFile is $(($filesize/1024/1024)) MB"
